@@ -13,7 +13,7 @@ import java.time.LocalDate;
 @Data
 @Builder
 public class UserRequest {
-    private Long id;
+
     private String firstName;
     private String lastName;
     private String otherName;

@@ -1,9 +1,6 @@
 package Diekara.Bank.Application2.service;
 
-import Diekara.Bank.Application2.dto.TransactionDto;
-import Diekara.Bank.Application2.dto.TransactionRequest;
-import Diekara.Bank.Application2.dto.Response;
-import Diekara.Bank.Application2.dto.UserRequest;
+import Diekara.Bank.Application2.dto.*;
 
 import java.util.List;
 
@@ -17,6 +14,8 @@ public interface UserService {
     Response nameEnquiry(String accountNumber);
     Response credit(TransactionRequest transactionRequest);
     Response debit(TransactionRequest transactionRequest);
-    List<TransactionDto> fetchTransactionByUser(String accountNumber);
+    List<TransactionDto> fetchAllTransactionsByUser(String accountNumber);
+    Response transfer(TransferRequest transferRequest);
 
+//    List<TransactionDto> fetchSingleUserTransaction(String accountNumber, String debitOrCredit);
 }

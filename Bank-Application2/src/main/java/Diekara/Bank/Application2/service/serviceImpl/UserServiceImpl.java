@@ -2,6 +2,8 @@ package Diekara.Bank.Application2.service.serviceImpl;
 
 import Diekara.Bank.Application2.Repository.UserRepository;
 import Diekara.Bank.Application2.dto.*;
+import Diekara.Bank.Application2.email.EmailDetail;
+import Diekara.Bank.Application2.email.EmailService;
 import Diekara.Bank.Application2.entity.User;
 import Diekara.Bank.Application2.service.UserService;
 import Diekara.Bank.Application2.util.ResponseUtil;
@@ -9,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,10 +23,17 @@ public class UserServiceImpl implements UserService {
 
     private UserRepository userRepository;
     private TransactionService transactionService;
+    private EmailService emailService;
 
-    public UserServiceImpl(UserRepository userRepository, TransactionService transactionService) {
+
+
+
+
+    public UserServiceImpl(UserRepository userRepository, TransactionService transactionService, EmailService emailService) {
         this.userRepository = userRepository;
         this.transactionService=transactionService;
+        this.emailService=emailService;
+
     }
 
     @Override
@@ -61,10 +72,21 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
+        EmailDetail message = EmailDetail.builder()
+                .recipient(user.getEmail())
+                .subject("Adelola Bank")
+                .messageBody("Congratulations! your account has been successfully created \n" +
+                        "Your Account name is:"+ savedUser.getFirstName()+" "+ savedUser.getLastName()+ " "+ savedUser.getOtherName()+".\n" +
+                        " Your Account Number is: "+ savedUser.getAccountNumber()+".")
+                .build();
+        emailService.sendSimpleEmail(message);
+
+
+
 
         return Response.builder()
                 .responseCode(ResponseUtil.SUCCESS)
-                .responseMessage(ResponseUtil.USER_REGISTERED_SUCCESS)
+                .responseMessage(USER_REGISTERED_SUCCESS)
                 .data(Data.builder()
                         .accountBalance(savedUser.getAccountBalance())
                         .accountNumber(savedUser.getAccountNumber())
@@ -183,12 +205,21 @@ public class UserServiceImpl implements UserService {
 
         transactionService.saveTransaction(transactionDto);
 
+        EmailDetail message = EmailDetail.builder()
+                .recipient(receivingUser.getEmail())
+                .subject("SA Bank Credit Alert")
+                .messageBody("Txn:Credit" + "\nAcct:xxxx" + "\nAmt"+ "NGN"+ transactionDto.getAmount()+ "\nDesc:"+ receivingUser.getFirstName() + receivingUser.getLastName()+ "\n" + LocalDateTime.now()+"\n"+"Bal:"+receivingUser.getAccountBalance())
+                .build();
+
+        emailService.sendSimpleEmail(message);
+
         return Response.builder()
                 .responseCode(SUCCESSFUL_TRANSACTION)
                 .responseMessage(ACCOUNT_CREDITED)
                 .data(Data.builder()
                         .accountName(transactionRequest.getAccountNumber())
                         .accountBalance(receivingUser.getAccountBalance())
+                        .accountNumber(receivingUser.getAccountNumber())
                         .accountName(receivingUser.getFirstName() + " " + receivingUser.getLastName() + receivingUser.getOtherName())
                         .build())
                 .build();
@@ -218,6 +249,14 @@ public class UserServiceImpl implements UserService {
 
         transactionService.saveTransaction(transactionDto);
 
+             EmailDetail message = EmailDetail.builder()
+                    .recipient(debitedUser.getEmail())
+                    .subject("Adelola Bank Debit Alert")
+                    .messageBody("Txn:Debit" + "\nAcct:xxxx" + "\nAmt"+ "NGN"+ transactionDto.getAmount()+ "\nDes:MOB2/UTO/TO"+ " "+ debitedUser.getFirstName() + debitedUser.getLastName()+ "\n" + LocalDateTime.now()+"\n"+"Bal:"+debitedUser.getAccountBalance())
+                    .build();
+                    
+            emailService.sendSimpleEmail(message);
+
         return Response.builder()
                 .responseCode(SUCCESSFUL_TRANSACTION)
                 .responseMessage(ACCOUNT_DEBITED)
@@ -229,16 +268,95 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
     return Response.builder()
-            .responseCode(ResponseUtil.UNSUCCESSFUL_TRANSACTION)
+            .responseCode(UNSUCCESSFUL_TRANSACTION)
             .responseMessage(INSUFFICIENT_FUND)
             .data(null)
             .build();
 }
 
+
     @Override
-    public List<TransactionDto> fetchTransactionByUser(String accountNumber) {
+    public List<TransactionDto> fetchAllTransactionsByUser(String accountNumber) {
         User user = userRepository.findByAccountNumber(accountNumber);
         return transactionService.fetchAllTransactions(user);
     }
+
+    @Override
+    public Response transfer(TransferRequest transactionRequest) {
+        User sourceAccount = userRepository.findByAccountNumber(transactionRequest.getSendingAccountNumber());
+        User destinationAccount = userRepository.findByAccountNumber(transactionRequest.getReceivingAccountNumber());
+
+           if (!userRepository.existsByAccountNumber(transactionRequest.getSendingAccountNumber()) ||
+                   !userRepository.existsByAccountNumber(transactionRequest.getReceivingAccountNumber()))  {
+
+               return Response.builder()
+                       .responseCode(USER_NOT_FOUND_CODE)
+                       .responseMessage(USER_NOT_FOUND_MESSAGE)
+                       .data(null)
+                       .build();
+           }
+           if (sourceAccount.getAccountBalance().compareTo(transactionRequest.getAmount()) > 0) {
+            sourceAccount.setAccountBalance(sourceAccount.getAccountBalance().subtract(transactionRequest.getAmount()));
+            userRepository.save(sourceAccount);
+
+            TransactionDto transactionDto = new TransactionDto();
+            transactionDto.setTransactionType("Debit");
+            transactionDto.setAccountNumber(transactionRequest.getSendingAccountNumber());
+            transactionDto.setAmount(transactionRequest.getAmount());
+
+            transactionService.saveTransaction(transactionDto);
+
+            destinationAccount.setAccountBalance(destinationAccount.getAccountBalance().add(transactionRequest.getAmount()));
+            userRepository.save(destinationAccount);
+
+            TransactionDto transactionDto1 = new TransactionDto();
+            transactionDto1.setTransactionType("Credit");
+            transactionDto1.setAccountNumber(transactionRequest.getReceivingAccountNumber());
+            transactionDto1.setAmount(transactionRequest.getAmount());
+
+            transactionService.saveTransaction(transactionDto1);
+
+               EmailDetail message = EmailDetail.builder()
+                       .recipient(destinationAccount.getEmail())
+                       .subject("Adelola Bank Credit Alert")
+                       .messageBody("Txn:Credit" + "\nAcct:xxxx" + "\nAmt"+ "NGN"+ transactionDto.getAmount()+ "\nDesc:"+ destinationAccount.getFirstName() + destinationAccount.getLastName()+ "\n" + LocalDateTime.now()+"\n"+"Bal:"+destinationAccount.getAccountBalance())
+                       .build();
+               emailService.sendSimpleEmail(message);
+
+//               EmailDetail message = EmailDetail.builder()
+//                       .recipient(sourceAccount.getEmail())
+//                       .subject("Adelola Bank")
+//                       .messageBody("Your account has been successfully created \n" +
+//                               "Your Account name is:"+ sourceAccount.getFirstName()+" "+ sourceAccount.getLastName()+ " "+ sourceAccount.getOtherName()+".\n" +
+//                               " Your Account Number is: "+ sourceAccount.getAccountNumber()+".")
+//                       .build();
+//               emailService.sendSimpleEmail(message);
+
+            return Response.builder()
+                    .responseCode(SUCCESSFUL_TRANSACTION)
+                    .responseMessage(TRANSFER_SUCCESSFUL_MESSAGE)
+                    .data(Data.builder()
+                            .accountNumber(transactionRequest.getSendingAccountNumber())
+                            .accountName(sourceAccount.getFirstName() + " " + sourceAccount.getOtherName() + " " + sourceAccount.getOtherName())
+                            .accountBalance(sourceAccount.getAccountBalance())
+                            .accountNumber(transactionRequest.getReceivingAccountNumber())
+                            .accountName(destinationAccount.getFirstName() + " " + destinationAccount.getLastName() + " " + destinationAccount.getOtherName())
+                            .accountBalance(destinationAccount.getAccountBalance())
+                             .build())
+                    .build();
+        }
+        return Response.builder()
+                .responseCode(UNSUCCESSFUL_TRANSACTION)
+                .responseMessage(INSUFFICIENT_FUND)
+                .data(null)
+                .build();
+    }
+
+
+
 }
+
+
+
+
 

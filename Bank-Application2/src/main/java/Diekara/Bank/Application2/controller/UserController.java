@@ -1,23 +1,23 @@
 package Diekara.Bank.Application2.controller;
 
-import Diekara.Bank.Application2.dto.Response;
-import Diekara.Bank.Application2.dto.TransactionDto;
-import Diekara.Bank.Application2.dto.TransactionRequest;
-import Diekara.Bank.Application2.dto.UserRequest;
+import Diekara.Bank.Application2.dto.*;
 import Diekara.Bank.Application2.service.UserService;
 import Diekara.Bank.Application2.service.serviceImpl.TransactionService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("api/users")
+@RequestMapping("/api/bank")
 public class UserController {
 
     private final UserService userService;
+    private final TransactionService transactionService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, TransactionService transactionService) {
         this.userService = userService;
+        this.transactionService = transactionService;
     }
 
     @PostMapping
@@ -50,14 +50,29 @@ public class UserController {
     public Response credit(@RequestBody TransactionRequest transactionRequest) {
         return userService.credit(transactionRequest);
     }
+
     @PutMapping("/debit")
-    public Response debit (@RequestBody TransactionRequest transactionRequest){
+    public Response debit(@RequestBody TransactionRequest transactionRequest) {
         return userService.debit(transactionRequest);
     }
 
-
+    @GetMapping("/allTransactions")
+    public List<TransactionDto> fetchAllTransactionsByUser(@RequestBody String accountNumber) {
+        return userService.fetchAllTransactionsByUser(accountNumber);
     }
 
+    @PutMapping("/transfer")
+    public Response transfer(@RequestBody TransferRequest transferRequest) {
+        return userService.transfer(transferRequest);
+    }
+
+    @GetMapping("/{accountNumber}/type")
+    public List<TransactionDto> fetchSingleUserTransaction(@PathVariable("accountNumber") String accountNumber, @RequestParam(name = "type") String debitOrCredit) {
+        return transactionService.fetchSingleUserTransaction(accountNumber, debitOrCredit);
+
+
+    }
+}
 
 
 

@@ -19,7 +19,7 @@ public class ResponseUtil {
         public static final String ACCOUNT_DEBITED= "Account has been debited";
         public static final String UNSUCCESSFUL_TRANSACTION = "005";
         public static final String INSUFFICIENT_FUND = "Insufficient_fund";
-
+        public static final String TRANSFER_SUCCESSFUL_MESSAGE = "Transfer successful";
         public static final int LENGTH_OF_ACCOUNT_NUMBER = 10;
 
         public static String generateAccountNumber(int len) {

@@ -49,4 +49,25 @@ public class TransactionServiceImpl implements TransactionService {
         return transactionDto;
     }
 
+    public List<TransactionDto> fetchSingleUserTransaction(String accountNumber, String debitOrCredit) {
+        List<Transaction> transactionList = transactionRepository.findByAccountNumber(accountNumber);
+        if (!transactionRepository.existsByAccountNumber(accountNumber)) {
+            return null;
+        }
+        List<TransactionDto> transactionDtoList = new ArrayList<>();
+        for (Transaction transaction : transactionList) {
+            if (transaction.getTransactionType().equalsIgnoreCase(debitOrCredit)) {
+                TransactionDto transactionDto = TransactionDto.builder()
+                        .transactionType(transaction.getTransactionType())
+                        .accountNumber(transaction.getAccountNumber())
+                        .amount(transaction.getAmount())
+                        .build();
+                transactionDtoList.add(transactionDto);
+
+            }
+
+        }
+        return transactionDtoList;
+
+    }
 }
